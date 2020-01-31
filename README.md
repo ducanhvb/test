@@ -175,3 +175,176 @@ gì không đúng không nhỉ? Không đâu, vì chúng ta chưa huấn luyện
 Bây giờ câu hỏi lớn tiếp theo ta phải đối mặt là quá trình lan truyền ngược trong mạng hồi quy diễn ra như thế nào? Bằng 
 cách nào các tham số weights được cập nhật?
 ## Lan truyền ngược trong mạng hồi quy (BPTT)
+Để tưởng tượng bằng cách nào các tham số weights được cập nhật trong trường hợp mạng hồi quy có thể sẽ có đôi chút khó 
+khăn. Để hiểu và minh họa quá trình lan truyền ngược, hãy trải mạng ra tại các bước thời gian. Trong mạng hồi quy, chúng ta 
+có thể có hoặc không có đầu ra tại mỗi bước thời gian.\
+<p align="center">
+  <img width="600" height="200" src="https://s3-ap-south-1.amazonaws.com/av-blog-media/wp-content/uploads/2017/12/06022525/bptt.png">
+</p>
+
+Trong trường hợp mạng hồi quy, nếu yt là giá trị dự đoán, ȳt là giá trị thực, sai số được tính theo hàm cross entropy:\
+
+Et(ȳt,yt) = – ȳt log(yt)
+
+E(ȳ,y) = – ∑ ȳt log(yt)
+
+Chúng ta thường coi toàn bộ một chuỗi (một từ) là một ví dụ để huấn luyện, do đó, sai số tổng là tổng của các sai số tại 
+mỗi thời điểm (kí tự). Như chúng ta thấy, weights là giống nhau ở mỗi bước thời gian. Hãy tóm tắt các bước trong lan truyền 
+ngược:\
+1. Cross entropy error được tính dựa trên giá trị đầu ra tính toán và đầu ra thực.
+2. Hãy nhớ rằng mạng được trải ra tại tất cả các bước thời gian.
+3. Đối với mạng được trải ra, gradient được tính cho mỗi bước thời gian đối với các tham số weight.
+4. Bây giờ tham số weight là như nhau tại tất cả các bước thời gian, gradients có thể được kết hợp với nhau cho tất cả các 
+bước thời gian.
+5. Các weights được cập nhất cho cả recurrent nơ-ron và các dense layers.
+
+Mạng hồi quy trải ra trông giống như một mạng nơ-ron thông thường và thuật toán lan truyền ngược tương tự như một mạng 
+nơ-ron thông thường, chỉ là chúng ta kết hợp các gradient của error cho toàn bộ các bước thời gian. Bây giờ bạn nghĩ điều 
+gì có thể xảy ra nếu có 100 bước thời gian. Điều này về cơ bản sẽ mất rất nhiều thời gian để mạng hội tụ vì sau khi trải 
+ra, mạng sẽ trở lên rất lớn.
+## Thực hiện mạng hồi quy với Keras 
+Sử dụng mạng hồi quy để dự đoán sắc thái câu trên tweets. Chúng ta sẽ dự đoán trạng thái tích cực hay tiêu cực của câu. 
+Dữ liệu có thể tải tại [đây](https://github.com/crwong/cs224u-project/tree/master/data/sentiment).\
+Chúng ta có khoảng 1600000 câu để huấn luyện mạng. Nếu bạn chưa quen với những khái niệm cơ bản trong NLP, bạn có thể
+đọc bài viết [này](https://www.analyticsvidhya.com/blog/2017/01/ultimate-guide-to-understand-implement-natural-language-processing-codes-in-python/)
+hoặc bài viết về word embedding tại [đây](https://www.analyticsvidhya.com/blog/2017/06/word-embeddings-count-word2veec/)
+
+```python
+# import all libraries
+import keras
+from keras.models import Sequential
+from keras.layers import Dense, Activation, Dropout
+from keras.layers.convolutional import Conv1D
+from keras.preprocessing.text import Tokenizer
+from keras.preprocessing.sequence import pad_sequences
+import pandas as pd
+import numpy as np
+import spacy
+nlp=spacy.load("en")
+
+#load the dataset
+train=pd.read_csv("../datasets/training.1600000.processed.noemoticon.csv" , encoding= "latin-1")
+Y_train = train[train.columns[0]]
+X_train = train[train.columns[5]]
+
+# split the data into test and train
+from sklearn.model_selection import train_test_split
+trainset1x, trainset2x, trainset1y, trainset2y = train_test_split(X_train.values, Y_train.values, test_size=0.02,random_state=42 )
+trainset2y=pd.get_dummies(trainset2y)
+
+# function to remove stopwords
+def stopwords(sentence):
+   new=[]
+   sentence=nlp(sentence)
+    for w in sentence:
+        if (w.is_stop == False) & (w.pos_ !="PUNCT"):
+            new.append(w.string.strip())
+        c=" ".join(str(x) for x in new)
+    return c
+
+# function to lemmatize the tweets
+def lemmatize(sentence):
+    sentence=nlp(sentence)
+    str=""
+    for w in sentence:
+        str+=" "+w.lemma_
+    return nlp(str)
+
+#loading the glove model
+def loadGloveModel(gloveFile):
+    print("Loading Glove Model")
+    f = open(gloveFile,'r')
+    model = {}
+    for line in f:
+        splitLine = line.split()
+        word = splitLine[0]
+        embedding = [float(val) for val in splitLine[1:]]
+        model[word] = embedding
+    print ("Done."),len(model),(" words loaded!")
+    return model
+
+# save the glove model
+model=loadGloveModel("/mnt/hdd/datasets/glove/glove.twitter.27B.200d.txt")
+
+#vectorising the sentences
+def sent_vectorizer(sent, model):
+    sent_vec = np.zeros(200)
+    numw = 0
+    for w in sent.split():
+        try:
+            sent_vec = np.add(sent_vec, model[str(w)])
+            numw+=1
+        except:
+            pass
+    return sent_vec
+
+#obtain a clean vector
+cleanvector=[]
+for i in range(trainset2x.shape[0]):
+    document=trainset2x[i]
+    document=document.lower()
+    document=lemmatize(document)
+    document=str(document)
+    cleanvector.append(sent_vectorizer(document,model))
+
+#Getting the input and output in proper shape
+cleanvector=np.array(cleanvector)
+cleanvector =cleanvector.reshape(len(cleanvector),200,1)
+
+#tokenizing the sequences
+tokenizer = Tokenizer(num_words=16000)
+tokenizer.fit_on_texts(trainset2x)
+sequences = tokenizer.texts_to_sequences(trainset2x)
+word_index = tokenizer.word_index
+print('Found %s unique tokens.' % len(word_index))
+data = pad_sequences(sequences, maxlen=15, padding="post")
+print(data.shape)
+
+#reshape the data and preparing to train
+data=data.reshape(len(cleanvector),15,1)
+from sklearn.model_selection import train_test_split
+trainx, validx, trainy, validy = train_test_split(data, trainset2y, test_size=0.3,random_state=42 )
+```
+```python 
+#calculate the number of words
+nb_words=len(tokenizer.word_index)+1
+
+#obtain theembedding matrix
+embedding_matrix = np.zeros((nb_words, 200))
+for word, i in word_index.items():
+    embedding_vector = model.get(word)
+    if embedding_vector is not None:
+        embedding_matrix[i] = embedding_vector
+print('Null word embeddings: %d' % np.sum(np.sum(embedding_matrix, axis=1) == 0))
+
+trainy=np.array(trainy)
+validy=np.array(validy)
+
+#building a simple RNN model
+def modelbuild():
+    model = Sequential()
+    model.add(keras.layers.InputLayer(input_shape=(15,1)))
+    keras.layers.embeddings.Embedding(nb_words, 15, weights=[embedding_matrix], input_length=15,
+    trainable=False)
+ 
+    model.add(keras.layers.recurrent.SimpleRNN(units = 100, activation='relu',
+    use_bias=True))
+    model.add(keras.layers.Dense(units=1000, input_dim = 2000, activation='sigmoid'))
+    model.add(keras.layers.Dense(units=500, input_dim=1000, activation='relu'))
+    model.add(keras.layers.Dense(units=2, input_dim=500,activation='softmax'))
+    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+    return model
+   
+#compiling the model
+finalmodel = modelbuild()
+finalmodel.fit(trainx, trainy, epochs=10, batch_size=120,validation_data=(validx,validy))
+```
+
+Sau khi chạy model trên, nó có thể không cung cấp cho bạn kết quả tốt nhất vì đây là một kiến trúc cực kỳ đơn giản và chưa 
+sâu. Bạn có thể thay đổi kiến trúc mạng để có được kết quả tốt hơn. Ngoài ra , bạn có thể thử các bước tiền xử lý dữ liệu.
+
+## Kết luận
+Hy vọng bài viết sẽ giúp các bạn làm quen với mạng hồi quy. Trong các bài viết sắp tới, chúng ta sẽ đi sâu vào toán học của 
+mạng hồi quy và các biến thể của mạng RNN cơ bản như: GRU, LSTM. Hãy thử khám phá các kiến trúc của mạng RNN và bạn sẽ 
+ngạc nhiên bởi tính hiệu quả của chúng trong các ứng dụng. Hãy để lại góp ý của bạn trong phần bình luận để giúp chúng tôi 
+cải thiện bài viết. 
