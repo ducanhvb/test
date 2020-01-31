@@ -115,5 +115,63 @@ nhờ ma trận Wxh. Ta khởi tạo ma trận 3x4 bất kỳ.
 <p align="center">
   <img width="250" height="120" src="https://s3-ap-south-1.amazonaws.com/av-blog-media/wp-content/uploads/2017/12/06011846/wxh.png">
 </p>
+
 **step 1:**\
-Đầu vào là chữ cái 'h'. 
+Đầu vào là chữ cái 'h'. Wxh*Xt được xác định:
+<p align="center">
+  <img width="500" height="150" src="https://s3-ap-south-1.amazonaws.com/av-blog-media/wp-content/uploads/2017/12/06122426/first-state-h.png">
+</p>
+
+**step 2:**\
+Whh là ma trận 1x1 <img width="70" height="40" src="https://s3-ap-south-1.amazonaws.com/av-blog-media/wp-content/uploads/2017/12/06013320/WHH.png">
+và bias cũng là ma trận 1x1 <img width="70" height="40" src="https://s3-ap-south-1.amazonaws.com/av-blog-media/wp-content/uploads/2017/12/06013447/bias.png">\
+Với chữ 'h', trạng thái trước đó là [0,0,0]. Giá trị whh*ht-1+bias:
+<p align="center">
+  <img width="450" height="150" src="https://s3-ap-south-1.amazonaws.com/av-blog-media/wp-content/uploads/2017/12/WHHT-1-1.png">
+</p>
+
+**step 3:**\
+Gía trị trạng thái hiện tại ht được tính theo công thức: <img width="300" height="50" src="https://s3-ap-south-1.amazonaws.com/av-blog-media/wp-content/uploads/2017/12/06014059/eq21.png">
+
+<p align="center">
+  <img width="700" height="300" src="https://s3-ap-south-1.amazonaws.com/av-blog-media/wp-content/uploads/2017/12/06130247/ht-h.png">
+</p>
+
+**step 4:**\
+Tiếp tục với trạng thái tiếp, 'e' là đầu vào mạng. ht giờ trở thành ht-1, và xt là véc-tơ one hot của 'e'.\
+Gía trị *Whhht-1 + bias là:
+<p align="center">
+  <img width="800" height="100" src="https://s3-ap-south-1.amazonaws.com/av-blog-media/wp-content/uploads/2017/12/06131259/new-ht-1.png">
+</p>
+
+Wxh*xt:
+<p align="center">
+  <img width="600" height="150" src="https://s3-ap-south-1.amazonaws.com/av-blog-media/wp-content/uploads/2017/12/06132150/state-e.png">
+</p>
+
+**step 5:**\
+ht tại chữ 'e'.
+<p align="center">
+  <img width="600" height="150" src="https://s3-ap-south-1.amazonaws.com/av-blog-media/wp-content/uploads/2017/12/06132639/htletter-e.png">
+</p>
+
+**step 6:**\
+Tại mỗi trạng thái, Mạng sẽ tính được giá trị đầu ra. Hãy tính yt cho chữ cái 'e'.\
+<p align="center">
+  <img width="100" height="50" src="https://s3-ap-south-1.amazonaws.com/av-blog-media/wp-content/uploads/2017/12/06005750/outeq.png">
+</p>
+<p align="center">
+  <img width="600" height="150" src="https://s3-ap-south-1.amazonaws.com/av-blog-media/wp-content/uploads/2017/12/06133208/ytfinal123.png">
+</p>
+
+**step 7:**\
+Xác xuất xuất hiện tại đầu ra của các chữ cái trong bộ từ vựng được xác định bằng hàm softmax.
+<p align="center">
+  <img width="600" height="150" src="https://s3-ap-south-1.amazonaws.com/av-blog-media/wp-content/uploads/2017/12/06133614/classwise-prob.png">
+</p>
+
+Nhìn vào kết quả trên, ta thấy model chỉ ra rằng sau chữ 'e' nên là chữ 'h' vì nó có xác suất cao nhất. Vậy liệu có điều 
+gì không đúng không nhỉ? Không đâu, vì chúng ta chưa huấn luyện mạng. Chúng ta mới chỉ cho nó hai chữ cái mà chưa dạy nó học.\
+Bây giờ câu hỏi lớn tiếp theo ta phải đối mặt là quá trình lan truyền ngược trong mạng hồi quy diễn ra như thế nào? Bằng 
+cách nào các tham số weights được cập nhật?
+## Lan truyền ngược trong mạng hồi quy (BPTT)
